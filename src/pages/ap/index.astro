@@ -1,0 +1,235 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { apInvoices, type InvoiceStatus } from '../../lib/data/dummy';
+
+const params = Astro.url.searchParams;
+const start = params.get('start') ?? '';
+const end = params.get('end') ?? '';
+const customer = params.get('customer') ?? '';
+const sales = params.get('sales') ?? '';
+const status = (params.get('status') ?? '') as InvoiceStatus | '';
+
+// Filter dijalankan di server. Nanti sumbernya diganti dengan query database.
+const rows = apInvoices.filter((inv) => {
+  if (start && inv.date < start) return false;
+  if (end && inv.date > end) return false;
+  if (customer && inv.customer !== customer) return false;
+  if (sales && inv.sales !== sales) return false;
+  if (status && inv.status !== status) return false;
+  return true;
+});
+
+const customers = [...new Set(apInvoices.map((i) => i.customer))].sort();
+const salesList = [...new Set(apInvoices.map((i) => i.sales))].sort();
+const statuses: InvoiceStatus[] = ['Open', 'Paid', 'Overdue'];
+
+const total = rows.reduce((sum, r) => sum + r.amount, 0);
+
+const fmt = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+---
+
+<AppLayout title="Account Payable">
+  <form class="filters" method="GET">
+    <label>
+      <span>Dari</span>
+      <input type="date" name="start" value={start} />
+    </label>
+    <label>
+      <span>Sampai</span>
+      <input type="date" name="end" value={end} />
+    </label>
+    <label>
+      <span>Customer</span>
+      <select name="customer">
+        <option value="">Semua</option>
+        {customers.map((c) => (
+          <option value={c} selected={c === customer}>{c}</option>
+        ))}
+      </select>
+    </label>
+    <label>
+      <span>Sales</span>
+      <select name="sales">
+        <option value="">Semua</option>
+        {salesList.map((s) => (
+          <option value={s} selected={s === sales}>{s}</option>
+        ))}
+      </select>
+    </label>
+    <label>
+      <span>Status</span>
+      <select name="status">
+        <option value="">Semua</option>
+        {statuses.map((s) => (
+          <option value={s} selected={s === status}>{s}</option>
+        ))}
+      </select>
+    </label>
+    <div class="actions">
+      <button type="submit">Terapkan</button>
+      <a href="/ap" class="reset">Reset</a>
+    </div>
+  </form>
+
+  <div class="summary">
+    <span>{rows.length} faktur</span>
+    <span>Total {fmt.format(total)}</span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Invoice</th>
+          <th>Tanggal</th>
+          <th>Jatuh tempo</th>
+          <th>Customer</th>
+          <th>Sales</th>
+          <th class="num">Jumlah</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 && (
+          <tr><td colspan="7" class="empty">Tidak ada data yang cocok dengan filter.</td></tr>
+        )}
+        {rows.map((r) => (
+          <tr>
+            <td class="mono">{r.id}</td>
+            <td>{fmtDate(r.date)}</td>
+            <td>{fmtDate(r.dueDate)}</td>
+            <td>{r.customer}</td>
+            <td>{r.sales}</td>
+            <td class="num">{fmt.format(r.amount)}</td>
+            <td><span class={`badge ${r.status.toLowerCase()}`}>{r.status}</span></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</AppLayout>
+
+<style>
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 24px;
+  }
+
+  .filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #3b3b3b;
+  }
+
+  .filters input,
+  .filters select {
+    height: 38px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 14px;
+    color: #111;
+    background: #fff;
+    border: 1px solid #d4d4d4;
+    border-radius: 6px;
+  }
+
+  .filters input:focus,
+  .filters select:focus {
+    outline: none;
+    border-color: #111;
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .actions button {
+    height: 38px;
+    padding: 0 16px;
+    font: inherit;
+    font-size: 14px;
+    color: #fff;
+    background: #111;
+    border: 1px solid #111;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .reset {
+    font-size: 13px;
+    color: #6b6b6b;
+    text-decoration: none;
+  }
+
+  .reset:hover { color: #111; }
+
+  .summary {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #6b6b6b;
+  }
+
+  .table-wrap {
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #efefef;
+    white-space: nowrap;
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b6b6b;
+    background: #fafafa;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fafafa; }
+
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  .empty { text-align: center; color: #6b6b6b; padding: 32px; }
+
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .badge.paid { background: #e7f6ef; color: #12805c; }
+  .badge.open { background: #f0f0f0; color: #3b3b3b; }
+  .badge.overdue { background: #fef3f2; color: #b42318; }
+
+  @media (max-width: 900px) {
+    .filters { grid-template-columns: 1fr 1fr; }
+  }
+</style>
