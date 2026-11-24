@@ -121,3 +121,19 @@ export const apInvoices: Invoice[] = [
     status: "Open",
   },
 ];
+
+// Piutang usaha. Nanti diganti dengan hasil upload Excel AR.
+export const arInvoices: Invoice[] = [
+  { id: 'AR-2026-001', date: '2026-09-04', dueDate: '2026-10-02', customer: 'PT Sinar Mandiri', sales: 'Sari', amount: 14200000, status: 'Paid' },
+  { id: 'AR-2026-002', date: '2026-09-12', dueDate: '2026-10-10', customer: 'UD Berkah Abadi', sales: 'Rina', amount: 6800000, status: 'Paid' },
+  { id: 'AR-2026-003', date: '2026-09-21', dueDate: '2026-10-19', customer: 'CV Maju Bersama', sales: 'Dimas', amount: 19300000, status: 'Paid' },
+  { id: 'AR-2026-004', date: '2026-10-03', dueDate: '2026-11-02', customer: 'PT Nusantara Jaya', sales: 'Sari', amount: 8400000, status: 'Overdue' },
+  { id: 'AR-2026-005', date: '2026-10-09', dueDate: '2026-11-08', customer: 'PT Sinar Mandiri', sales: 'Rina', amount: 22750000, status: 'Overdue' },
+  { id: 'AR-2026-006', date: '2026-10-16', dueDate: '2026-11-15', customer: 'UD Berkah Abadi', sales: 'Dimas', amount: 5100000, status: 'Overdue' },
+  { id: 'AR-2026-007', date: '2026-10-24', dueDate: '2026-11-23', customer: 'CV Maju Bersama', sales: 'Sari', amount: 12600000, status: 'Open' },
+  { id: 'AR-2026-008', date: '2026-10-30', dueDate: '2026-11-29', customer: 'PT Nusantara Jaya', sales: 'Rina', amount: 17900000, status: 'Open' },
+  { id: 'AR-2026-009', date: '2026-11-05', dueDate: '2026-12-05', customer: 'PT Sinar Mandiri', sales: 'Dimas', amount: 9650000, status: 'Open' },
+  { id: 'AR-2026-010', date: '2026-11-11', dueDate: '2026-12-11', customer: 'UD Berkah Abadi', sales: 'Sari', amount: 4700000, status: 'Open' },
+  { id: 'AR-2026-011', date: '2026-11-18', dueDate: '2026-12-18', customer: 'CV Maju Bersama', sales: 'Rina', amount: 16300000, status: 'Open' },
+  { id: 'AR-2026-012', date: '2026-11-22', dueDate: '2026-12-22', customer: 'PT Nusantara Jaya', sales: 'Dimas', amount: 7850000, status: 'Open' },
+];
