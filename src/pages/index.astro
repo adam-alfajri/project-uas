@@ -1,13 +1,7 @@
 ---
-const user = Astro.locals.profile;
+import AppLayout from '../layouts/AppLayout.astro';
 ---
-<html lang="id">
-  <head>
-    <meta charset="utf-8" />
-    <title>Fajri Finance</title>
-  </head>
-  <body>
-    <h1>Fajri Finance berjalan</h1>
-    <p>Login sebagai: {user?.username} ({user?.role})</p>
-  </body>
-</html>
+
+<AppLayout title="Dashboard">
+  <p>Summary will appear here.</p>
+</AppLayout>
