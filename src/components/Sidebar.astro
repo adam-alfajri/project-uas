@@ -1,0 +1,133 @@
+---
+const path = Astro.url.pathname;
+const profile = Astro.locals.profile;
+
+type Child = { label: string; href: string };
+type Item = { label: string; href: string; children?: Child[] };
+
+const menu: Item[] = [
+  { label: 'Dashboard', href: '/' },
+  { label: 'Account Payable', href: '/ap' },
+  { label: 'Account Receivable', href: '/ar' },
+  {
+    label: 'Financial Report',
+    href: '/reports',
+    children: [
+      { label: 'Forecasting', href: '/reports/forecast' },
+      { label: 'Laba Rugi', href: '/reports/laba-rugi' },
+      { label: 'Arus Kas', href: '/reports/arus-kas' },
+    ],
+  },
+];
+
+// Menu pengguna hanya tampil untuk admin
+if (profile?.role === 'admin') {
+  menu.push({ label: 'Users', href: '/admin/users' });
+}
+
+const isActive = (href: string) =>
+  href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
+---
+
+<nav class="sidebar" aria-label="Menu utama">
+  <a class="brand" href="/">Fajri Finance</a>
+
+  <ul class="menu">
+    {menu.map((item) => {
+      const active = isActive(item.href);
+      return (
+        <li>
+          <a
+            href={item.href}
+            class:list={['link', active && 'active']}
+            aria-current={active ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+
+          {item.children && active && (
+            <ul class="sub">
+              {item.children.map((child) => {
+                const childActive = path === child.href;
+                return (
+                  <li>
+                    <a
+                      href={child.href}
+                      class:list={['link', 'sub-link', childActive && 'active']}
+                      aria-current={childActive ? 'page' : undefined}
+                    >
+                      {child.label}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </li>
+      );
+    })}
+  </ul>
+</nav>
+
+<style>
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 32px 20px;
+    background: #0f0f0f;
+    color: #f2f2f2;
+  }
+
+  .brand {
+    padding: 0 12px;
+    margin-bottom: 32px;
+    font-size: 14px;
+    font-weight: 600;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .menu,
+  .sub {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sub {
+    margin: 2px 0 6px 12px;
+    padding-left: 12px;
+    border-left: 1px solid #262626;
+  }
+
+  .link {
+    display: block;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #8a8a8a;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .link:hover {
+    color: #f2f2f2;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .link.active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .sub-link {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+
+  .link:focus-visible {
+    outline: 1px solid #ffffff;
+    outline-offset: 2px;
+  }
+</style>
