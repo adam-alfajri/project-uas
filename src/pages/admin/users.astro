@@ -1,0 +1,25 @@
+---
+const error = Astro.url.searchParams.get('error');
+const success = Astro.url.searchParams.get('success');
+---
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tambah User | Fajri Finance</title>
+  </head>
+  <body>
+    <h1>Tambah User</h1>
+    <form method="POST" action="/api/admin/users/create">
+      <input name="username" placeholder="Username" required />
+      <input name="email" type="email" placeholder="Email" required />
+      <input name="password" type="password" placeholder="Password" required />
+      <select name="role">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button type="submit">Simpan</button>
+    </form>
+    {error && <p>Gagal: {error}</p>}
+    {success && <p>User berhasil dibuat.</p>}
+  </body>
+</html>

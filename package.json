@@ -8,10 +8,15 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
-    "astro": "astro"
+    "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "^7.4.12"
+    "@astrojs/node": "^11.1.13",
+    "@astrojs/react": "^7.1.9",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.119.0",
+    "astro": "^7.4.12",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }

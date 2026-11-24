@@ -1,0 +1,264 @@
+---
+const hasError = Astro.url.searchParams.has('error');
+---
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Masuk | Fajri Finance</title>
+    <style>
+      :root {
+        --bg: #f3f5fa;
+        --card: #ffffff;
+        --text: #1a1f36;
+        --muted: #6b7280;
+        --border: #d4d9e5;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --focus: rgba(37, 99, 235, 0.22);
+        --danger-bg: #fef2f2;
+        --danger-text: #b91c1c;
+        --danger-border: #fecaca;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0f1321;
+          --card: #171c2e;
+          --text: #e7eaf3;
+          --muted: #9aa3b8;
+          --border: #2a3247;
+          --focus: rgba(96, 165, 250, 0.25);
+          --danger-bg: #3a1518;
+          --danger-text: #fca5a5;
+          --danger-border: #6b2228;
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 1.25rem;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 380px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 2rem 1.75rem;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: var(--primary);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+      }
+
+      .brand-name {
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+
+      h1 {
+        margin: 0 0 0.25rem;
+        font-size: 1.4rem;
+      }
+
+      .subtitle {
+        margin: 0 0 1.5rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .alert {
+        background: var(--danger-bg);
+        color: var(--danger-text);
+        border: 1px solid var(--danger-border);
+        border-radius: 8px;
+        padding: 0.7rem 0.85rem;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+      }
+
+      .field {
+        margin-bottom: 1rem;
+      }
+
+      label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+      }
+
+      input[type='email'],
+      input[type='password'],
+      input[type='text'] {
+        width: 100%;
+        padding: 0.7rem 0.85rem;
+        font-size: 1rem; /* 16px supaya iOS tidak zoom saat fokus */
+        color: var(--text);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--focus);
+      }
+
+      .password-wrap {
+        position: relative;
+      }
+
+      .password-wrap input {
+        padding-right: 4.5rem;
+      }
+
+      .toggle {
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0.3rem 0.5rem;
+        border-radius: 6px;
+      }
+
+      .toggle:hover { color: var(--text); }
+
+      button[type='submit'] {
+        width: 100%;
+        margin-top: 0.5rem;
+        padding: 0.8rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #fff;
+        background: var(--primary);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s, opacity 0.15s;
+      }
+
+      button[type='submit']:hover:not(:disabled) { background: var(--primary-hover); }
+      button[type='submit']:disabled { opacity: 0.7; cursor: wait; }
+
+      .footer {
+        margin: 1.5rem 0 0;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="brand">
+        <div class="logo">F</div>
+        <span class="brand-name">Fajri Finance</span>
+      </div>
+
+      <h1>Masuk</h1>
+      <p class="subtitle">Masuk untuk melanjutkan ke dashboard.</p>
+
+      {hasError && (
+        <div class="alert" role="alert">Email atau password salah.</div>
+      )}
+
+      <form id="login-form" method="POST" action="/api/auth/login">
+        <div class="field">
+          <label for="email">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="nama@email.com"
+            autocomplete="email"
+            required
+            autofocus
+          />
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="password-wrap">
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Masukkan password"
+              autocomplete="current-password"
+              required
+            />
+            <button type="button" class="toggle" id="toggle-password" aria-label="Tampilkan password">
+              Tampilkan
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="submit-btn">Masuk</button>
+      </form>
+
+      <p class="footer">Belum punya akun? Hubungi admin.</p>
+    </main>
+
+    <script>
+      const form = document.getElementById('login-form') as HTMLFormElement;
+      const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+      const passwordInput = document.getElementById('password') as HTMLInputElement;
+      const toggleBtn = document.getElementById('toggle-password') as HTMLButtonElement;
+
+      form.addEventListener('submit', () => {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Memproses...';
+      });
+
+      // Kembalikan tombol jika user kembali ke halaman ini (back button)
+      window.addEventListener('pageshow', () => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Masuk';
+      });
+
+      toggleBtn.addEventListener('click', () => {
+        const show = passwordInput.type === 'password';
+        passwordInput.type = show ? 'text' : 'password';
+        toggleBtn.textContent = show ? 'Sembunyikan' : 'Tampilkan';
+        toggleBtn.setAttribute('aria-label', show ? 'Sembunyikan password' : 'Tampilkan password');
+      });
+    </script>
+  </body>
+</html>
