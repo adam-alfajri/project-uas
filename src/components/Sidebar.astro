@@ -1,133 +1,276 @@
 ---
-const path = Astro.url.pathname;
-const profile = Astro.locals.profile;
-
 type Child = { label: string; href: string };
 type Item = { label: string; href: string; children?: Child[] };
 
-const menu: Item[] = [
-  { label: 'Dashboard', href: '/' },
-  { label: 'Account Payable', href: '/ap' },
-  { label: 'Account Receivable', href: '/ar' },
+const path = Astro.url.pathname;
+const profile = Astro.locals.profile;
+
+const isActive = (href: string) =>
+  href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
+
+const items: Item[] = [
+  { label: "Dashboard", href: "/" },
+  { label: "Account Payable", href: "/ap" },
+  { label: "Account Receivable", href: "/ar" },
   {
-    label: 'Financial Report',
-    href: '/reports',
+    label: "Financial Report",
+    href: "/reports",
     children: [
-      { label: 'Forecasting', href: '/reports/forecast' },
-      { label: 'Laba Rugi', href: '/reports/laba-rugi' },
-      { label: 'Arus Kas', href: '/reports/arus-kas' },
+      { label: "Forecasting", href: "/reports/forecast" },
+      { label: "Laba Rugi", href: "/reports/laba-rugi" },
+      { label: "Arus Kas", href: "/reports/arus-kas" },
     ],
   },
 ];
 
-// Menu pengguna hanya tampil untuk admin
-if (profile?.role === 'admin') {
-  menu.push({ label: 'Users', href: '/admin/users' });
+if (profile?.role === "admin") {
+  items.push({ label: "Users", href: "/admin/users" });
 }
-
-const isActive = (href: string) =>
-  href === '/' ? path === '/' : path === href || path.startsWith(href + '/');
 ---
 
-<nav class="sidebar" aria-label="Menu utama">
-  <a class="brand" href="/">Fajri Finance</a>
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+  <a class="brand" href="/">
+    <span class="mark" aria-hidden="true"></span>
+    Fajri Finance
+  </a>
 
-  <ul class="menu">
-    {menu.map((item) => {
+  <p class="nav-label">Workspace</p>
+
+  <ol class="nav">
+    {items.map((item, i) => {
       const active = isActive(item.href);
       return (
-        <li>
+        <li class={active ? "item is-active" : "item"}>
           <a
+            class="link"
             href={item.href}
-            class:list={['link', active && 'active']}
-            aria-current={active ? 'page' : undefined}
+            aria-current={active ? "page" : undefined}
           >
-            {item.label}
+            <span class="idx">{String(i + 1).padStart(2, "0")}</span>
+            <span class="label">{item.label}</span>
           </a>
 
-          {item.children && active && (
-            <ul class="sub">
-              {item.children.map((child) => {
-                const childActive = path === child.href;
-                return (
-                  <li>
+          {item.children && (
+            <ul class={active ? "sub is-open" : "sub"}>
+              <li class="sub-wrap">
+                {item.children.map((c) => {
+                  const current = path === c.href;
+                  return (
                     <a
-                      href={child.href}
-                      class:list={['link', 'sub-link', childActive && 'active']}
-                      aria-current={childActive ? 'page' : undefined}
+                      class={current ? "sub-link is-active" : "sub-link"}
+                      href={c.href}
+                      aria-current={current ? "page" : undefined}
                     >
-                      {child.label}
+                      {c.label}
                     </a>
-                  </li>
-                );
-              })}
+                  );
+                })}
+              </li>
             </ul>
           )}
         </li>
       );
     })}
-  </ul>
-</nav>
+  </ol>
+
+  <p class="foot">Fajri Finance · v1.0</p>
+</aside>
 
 <style>
   .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    padding: 32px 20px;
+    padding: 28px 24px 24px;
+    overflow-y: auto;
     background: #0f0f0f;
     color: #f2f2f2;
   }
 
   .brand {
-    padding: 0 12px;
-    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 2px;
     font-size: 14px;
     font-weight: 600;
+    letter-spacing: -0.01em;
     color: inherit;
     text-decoration: none;
   }
 
-  .menu,
-  .sub {
+  .mark {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    background: #ffffff;
+  }
+
+  .mark::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    background: #0f0f0f;
+  }
+
+  .brand:focus-visible {
+    outline: 1px solid #fff;
+    outline-offset: 4px;
+  }
+
+  .nav-label {
+    margin: 44px 0 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #5c5c5c;
+  }
+
+  .nav {
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
-  .sub {
-    margin: 2px 0 6px 12px;
-    padding-left: 12px;
-    border-left: 1px solid #262626;
+  .item + .item {
+    margin-top: 2px;
   }
 
   .link {
-    display: block;
-    padding: 8px 12px;
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    align-items: baseline;
+    padding: 10px 0;
     font-size: 14px;
     color: #8a8a8a;
     text-decoration: none;
-    border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
+    transition: color 0.25s var(--ease, ease);
+  }
+
+  .link::before {
+    content: "";
+    position: absolute;
+    left: -24px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #ffffff;
+    transform: scaleY(0);
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .idx {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11px;
+    color: #4d4d4d;
+    transition: color 0.25s ease;
   }
 
   .link:hover {
-    color: #f2f2f2;
-    background: rgba(255, 255, 255, 0.04);
+    color: #e6e6e6;
+  }
+  .link:hover .idx {
+    color: #9a9a9a;
   }
 
-  .link.active {
+  .item.is-active .link {
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.08);
+  }
+  .item.is-active .idx {
+    color: #ffffff;
+  }
+  .item.is-active .link::before {
+    transform: scaleY(1);
+  }
+
+  .link:focus-visible,
+  .sub-link:focus-visible {
+    outline: 1px solid #ffffff;
+    outline-offset: 4px;
+  }
+
+  .sub {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sub.is-open {
+    grid-template-rows: 1fr;
+  }
+
+  .sub-wrap {
+    min-height: 0;
+    overflow: hidden;
   }
 
   .sub-link {
+    position: relative;
+    display: block;
+    padding: 7px 0 7px 28px;
     font-size: 13px;
-    padding: 6px 12px;
+    color: #6b6b6b;
+    text-decoration: none;
+    transition: color 0.2s ease;
   }
 
-  .link:focus-visible {
-    outline: 1px solid #ffffff;
-    outline-offset: 2px;
+  .sub-link::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    width: 12px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.6;
+  }
+
+  .sub-link:hover {
+    color: #e6e6e6;
+  }
+  .sub-link.is-active {
+    color: #ffffff;
+  }
+
+  .foot {
+    margin: auto 0 0;
+    padding-top: 24px;
+    font-size: 12px;
+    color: #4d4d4d;
+  }
+
+  @media (max-width: 900px) {
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 280px;
+      height: 100dvh;
+      transform: translateX(-100%);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .app.nav-open .sidebar {
+      transform: translateX(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar,
+    .sub,
+    .link::before {
+      transition: none !important;
+    }
   }
 </style>
