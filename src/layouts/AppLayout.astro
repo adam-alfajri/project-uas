@@ -20,7 +20,7 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} | Fajri Finance</title>
-    <style>
+    <style is:global>
       @view-transition {
         navigation: auto;
       }
@@ -36,6 +36,7 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
         --wash: #f6f6f5;
         --accent: #3f5f8a;
         --accent-soft: #c9d4e3;
+        --sidebar-w: 248px;
         --ease: cubic-bezier(0.16, 1, 0.3, 1);
       }
 
@@ -93,10 +94,16 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
       }
 
       .app {
+        position: relative;
         min-height: 100vh;
         min-height: 100dvh;
         display: grid;
-        grid-template-columns: 248px minmax(0, 1fr);
+        grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+        transition: grid-template-columns 0.6s var(--ease);
+      }
+
+      .app.sidebar-collapsed {
+        grid-template-columns: 0 minmax(0, 1fr);
       }
 
       .main {
@@ -105,7 +112,6 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
         flex-direction: column;
       }
 
-      /* ---------- Topbar ---------- */
       .topbar {
         position: sticky;
         top: 0;
@@ -131,9 +137,10 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
       }
 
       .toggle {
-        display: none;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        flex: none;
         width: 36px;
         height: 36px;
         padding: 0;
@@ -142,6 +149,13 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
         border-radius: 8px;
         cursor: pointer;
         color: var(--ink);
+        transition:
+          border-color 0.25s ease,
+          background-color 0.25s ease;
+      }
+
+      .toggle:hover {
+        border-color: var(--ink);
       }
 
       .toggle-bars {
@@ -164,6 +178,7 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
         transition: transform 0.5s var(--ease);
       }
 
+      .app.sidebar-collapsed .toggle-bars::after,
       .app.nav-open .toggle-bars::after {
         transform: translateY(-50%) scaleX(0);
       }
@@ -292,11 +307,10 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
         outline-offset: 2px;
       }
 
-      /* ---------- Konten ---------- */
       .content {
         width: 100%;
-        max-width: 1200px;
-        padding: 48px 40px 96px;
+        max-width: none;
+        padding: 48px clamp(32px, 4vw, 64px) 96px;
       }
 
       .page-head {
@@ -356,12 +370,11 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
       }
 
       @media (max-width: 960px) {
-        .app {
+        .app,
+        .app.sidebar-collapsed {
           grid-template-columns: 1fr;
         }
-        .toggle {
-          display: inline-flex;
-        }
+
         .topbar {
           padding: 0 20px;
         }
@@ -421,8 +434,8 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
               class="toggle"
               type="button"
               aria-controls="sidebar"
-              aria-expanded="false"
-              aria-label="Toggle menu"
+              aria-expanded="true"
+              aria-label="Toggle sidebar"
               data-toggle
             >
               <span class="toggle-bars" aria-hidden="true"></span>
@@ -483,21 +496,52 @@ const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
     <script>
       const app = document.getElementById("app") as HTMLElement;
       const toggle = document.querySelector<HTMLButtonElement>("[data-toggle]");
+      const isMobile = () => window.matchMedia("(max-width: 960px)").matches;
+      const STORAGE_KEY = "fajri.sidebar";
 
-      const setOpen = (open: boolean) => {
+      // Desktop: sidebar bisa dilipat. Mobile: sidebar jadi drawer.
+      const applyDesktop = (open: boolean) => {
+        app.classList.toggle("sidebar-collapsed", !open);
+        toggle?.setAttribute("aria-expanded", String(open));
+      };
+
+      const applyMobile = (open: boolean) => {
         app.classList.toggle("nav-open", open);
         toggle?.setAttribute("aria-expanded", String(open));
       };
 
-      toggle?.addEventListener("click", () =>
-        setOpen(!app.classList.contains("nav-open")),
-      );
+      const restore = () => {
+        if (isMobile()) {
+          app.classList.remove("sidebar-collapsed");
+          applyMobile(false);
+        } else {
+          app.classList.remove("nav-open");
+          const saved = localStorage.getItem(STORAGE_KEY);
+          applyDesktop(saved !== "closed");
+        }
+      };
+
+      restore();
+      window.addEventListener("resize", restore);
+
+      toggle?.addEventListener("click", () => {
+        if (isMobile()) {
+          applyMobile(!app.classList.contains("nav-open"));
+          return;
+        }
+        const open = app.classList.contains("sidebar-collapsed");
+        applyDesktop(open);
+        localStorage.setItem(STORAGE_KEY, open ? "open" : "closed");
+      });
+
       document
         .querySelectorAll("[data-close]")
-        .forEach((el) => el.addEventListener("click", () => setOpen(false)));
+        .forEach((el) =>
+          el.addEventListener("click", () => applyMobile(false)),
+        );
 
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") setOpen(false);
+        if (e.key === "Escape" && isMobile()) applyMobile(false);
 
         const el = e.target as HTMLElement | null;
         const typing = el?.closest(

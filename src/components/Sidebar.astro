@@ -72,64 +72,66 @@ const isActive = (href: string) =>
 ---
 
 <aside class="sidebar" id="sidebar" aria-label="Primary">
-  <a class="brand" href="/">
-    <span class="mark" aria-hidden="true"></span>
-    <span>Fajri Finance</span>
-  </a>
+  <div class="inner">
+    <a class="brand" href="/">
+      <span class="mark" aria-hidden="true"></span>
+      <span>Fajri Finance</span>
+    </a>
 
-  <nav class="nav" aria-label="Modules">
-    {groups.map((g) => (
-      <section class="group">
-        <p class="group-title">{g.title}</p>
-        <ul class="list">
-          {g.entries.map((e) => {
-            const active = isActive(e.href);
-            return (
-              <li>
-                <a
-                  class={active ? "entry is-active" : "entry"}
-                  href={e.href}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d={ICONS[e.icon]} />
-                  </svg>
-                  <span class="text">{e.label}</span>
-                  {e.badge !== undefined && (
-                    <span class="badge">{e.badge}</span>
+    <nav class="nav" aria-label="Modules">
+      {groups.map((g) => (
+        <section class="group">
+          <p class="group-title">{g.title}</p>
+          <ul class="list">
+            {g.entries.map((e) => {
+              const active = isActive(e.href);
+              return (
+                <li>
+                  <a
+                    class={active ? "entry is-active" : "entry"}
+                    href={e.href}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d={ICONS[e.icon]} />
+                    </svg>
+                    <span class="text">{e.label}</span>
+                    {e.badge !== undefined && (
+                      <span class="badge">{e.badge}</span>
+                    )}
+                  </a>
+
+                  {e.children && (
+                    <ul class="children">
+                      {e.children.map((c) => {
+                        const current = path === c.href;
+                        return (
+                          <li>
+                            <a
+                              class={current ? "child is-current" : "child"}
+                              href={c.href}
+                              aria-current={current ? "page" : undefined}
+                            >
+                              {c.label}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
-                </a>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </nav>
 
-                {e.children && (
-                  <ul class="children">
-                    {e.children.map((c) => {
-                      const current = path === c.href;
-                      return (
-                        <li>
-                          <a
-                            class={current ? "child is-current" : "child"}
-                            href={c.href}
-                            aria-current={current ? "page" : undefined}
-                          >
-                            {c.label}
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    ))}
-  </nav>
-
-  <footer class="foot">
-    <span>Fajri Finance</span>
-    <span>v1.0</span>
-  </footer>
+    <footer class="foot">
+      <span>Fajri Finance</span>
+      <span>v1.0</span>
+    </footer>
+  </div>
 </aside>
 
 <style>
@@ -139,12 +141,25 @@ const isActive = (href: string) =>
     z-index: 50;
     height: 100vh;
     height: 100dvh;
+    overflow: hidden;
+    background: #0f0f0f;
+    color: #f2f2f2;
+  }
+
+  /* Lebar konten dipertahankan saat dilipat, supaya tidak ada teks yang terpotong saat transisi */
+  .inner {
+    width: 248px;
+    height: 100%;
     display: flex;
     flex-direction: column;
     padding: 24px 16px 20px;
     overflow-y: auto;
-    background: #0f0f0f;
-    color: #f2f2f2;
+    transition: opacity 0.4s ease;
+  }
+
+  .app.sidebar-collapsed .inner {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .brand {
@@ -305,12 +320,30 @@ const isActive = (href: string) =>
       transform: translateX(-100%);
       transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
+
+    .inner {
+      width: 280px;
+    }
+
+    .app.sidebar-collapsed .inner {
+      opacity: 1;
+      pointer-events: auto;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     * {
       transition: none !important;
       animation: none !important;
+    }
+  }
+</style>
+
+<style is:global>
+  @media (max-width: 960px) {
+    .app.nav-open > .sidebar {
+      transform: none;
+      box-shadow: 24px 0 48px -24px rgba(0, 0, 0, 0.4);
     }
   }
 </style>
