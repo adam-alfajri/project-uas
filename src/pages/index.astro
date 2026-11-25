@@ -1,286 +1,430 @@
 ---
 import AppLayout from "../layouts/AppLayout.astro";
-import { apInvoices, arInvoices, type Invoice } from "../lib/data/dummy";
+import {
+  apInvoices,
+  arInvoices,
+  type Invoice,
+  type InvoiceStatus,
+} from "../lib/data/dummy";
 import {
   money,
   todayISO,
   todayLong,
-  hourBangkok,
   monthLabel,
   lastDayOfMonth,
   daysBetween,
-  shortDate,
 } from "../lib/format";
 
-const profile = Astro.locals.profile;
-const name = profile?.username ?? "there";
-const hour = hourBangkok();
-const greeting =
-  hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 const today = todayISO();
+const all = [
+  ...apInvoices.map((i) => ({ ...i, mod: "AP" as const })),
+  ...arInvoices.map((i) => ({ ...i, mod: "AR" as const })),
+];
 
 const sum = (list: Invoice[]) => list.reduce((acc, i) => acc + i.amount, 0);
+const byStatus = (s: InvoiceStatus) => sum(all.filter((i) => i.status === s));
 
-const apOpen = apInvoices.filter((i) => i.status !== "Paid");
-const arOpen = arInvoices.filter((i) => i.status !== "Paid");
-const apTotal = sum(apOpen);
-const arTotal = sum(arOpen);
-const net = arTotal - apTotal;
+const paidAmt = byStatus("Paid");
+const openAmt = byStatus("Open");
+const overdueAmt = byStatus("Overdue");
+const everything = paidAmt + openAmt + overdueAmt;
+const outstanding = openAmt + overdueAmt;
 
-const tagged = [
-  ...apInvoices.map((i) => ({ ...i, module: "AP" as const })),
-  ...arInvoices.map((i) => ({ ...i, module: "AR" as const })),
-];
-const overdue = tagged.filter((i) => i.status === "Overdue");
-const overdueTotal = sum(overdue);
-const attention = [...overdue].sort((a, b) => b.amount - a.amount).slice(0, 5);
+const openAR = sum(arInvoices.filter((i) => i.status !== "Paid"));
+const openAP = sum(apInvoices.filter((i) => i.status !== "Paid"));
+const net = openAR - openAP;
+const openARCount = arInvoices.filter((i) => i.status !== "Paid").length;
+const openAPCount = apInvoices.filter((i) => i.status !== "Paid").length;
 
-const months = [
-  ...new Set([...apInvoices, ...arInvoices].map((i) => i.date.slice(0, 7))),
-].sort();
-const series = months.map((m) => ({
-  key: m,
-  label: monthLabel(m),
-  end: lastDayOfMonth(m),
-  ap: sum(apInvoices.filter((i) => i.date.startsWith(m))),
-  ar: sum(arInvoices.filter((i) => i.date.startsWith(m))),
+const overdueList = all
+  .filter((i) => i.status === "Overdue")
+  .sort((a, b) => b.amount - a.amount);
+const overdueCount = overdueList.length;
+const overdueShare = outstanding
+  ? Math.round((overdueAmt / outstanding) * 100)
+  : 0;
+const lateDays = (due: string) => Math.max(0, daysBetween(due, today));
+
+const keys = [...new Set(all.map((i) => i.date.slice(0, 7)))].sort();
+const issuedIn = (list: Invoice[], m: string) =>
+  sum(list.filter((i) => i.date.startsWith(m)));
+
+const cur = keys.at(-1) ?? "";
+const prev = keys.at(-2) ?? "";
+const curTotal = issuedIn(all, cur);
+const prevTotal = prev ? issuedIn(all, prev) : 0;
+const delta = prevTotal ? ((curTotal - prevTotal) / prevTotal) * 100 : null;
+const curLabel = cur ? monthLabel(cur) : "—";
+const prevLabel = prev ? monthLabel(prev) : "—";
+const firstLabel = keys[0] ? monthLabel(keys[0]) : "";
+const lastLabel = curLabel;
+
+const series = keys.map((k) => ({
+  key: k,
+  label: monthLabel(k),
+  end: lastDayOfMonth(k),
+  ap: issuedIn(apInvoices, k),
+  ar: issuedIn(arInvoices, k),
 }));
-
 const peak = Math.max(1, ...series.flatMap((s) => [s.ap, s.ar]));
-const BAR_MAX = 170;
-const px = (v: number) => Math.max(2, Math.round((v / peak) * BAR_MAX));
+const barH = (v: number) => Math.max(4, Math.round((v / peak) * 200));
+const mio = (v: number) =>
+  `${(v / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
 
-const daysLate = (due: string) => daysBetween(due, today);
+const ring = (() => {
+  let acc = 0;
+  return [
+    { key: "paid", label: "Paid", value: paidAmt },
+    { key: "open", label: "Open", value: openAmt },
+    { key: "overdue", label: "Overdue", value: overdueAmt },
+  ].map((s) => {
+    const share = everything ? (s.value / everything) * 100 : 0;
+    const out = { ...s, share, start: acc };
+    acc += share;
+    return out;
+  });
+})();
 
-const summary = overdue.length
-  ? `${overdue.length} invoices are overdue and need follow-up, totalling ${money(overdueTotal)}.`
-  : "Every invoice is on schedule.";
-const heading = `${greeting}, ${name}`;
+const salesRows = [...new Set(all.map((i) => i.sales))]
+  .map((name) => {
+    const rows = all.filter((i) => i.sales === name);
+    return {
+      name,
+      paid: sum(rows.filter((r) => r.status === "Paid")),
+      open: sum(rows.filter((r) => r.status === "Open")),
+      overdue: sum(rows.filter((r) => r.status === "Overdue")),
+    };
+  })
+  .map((r) => ({ ...r, total: r.paid + r.open + r.overdue }))
+  .sort((a, b) => b.total - a.total);
+const salesPeak = Math.max(1, ...salesRows.map((r) => r.total));
+const pctOf = (v: number) => (v / salesPeak) * 100;
+
+const summary = overdueCount
+  ? `${overdueCount} invoices are overdue, totalling ${money(overdueAmt)}. Receivables ${net >= 0 ? "exceed" : "trail"} payables by ${money(Math.abs(net))}.`
+  : `Nothing is overdue. Receivables ${net >= 0 ? "exceed" : "trail"} payables by ${money(Math.abs(net))}.`;
 ---
 
 <AppLayout
-  title={heading}
-  section="Dashboard"
+  title="Overview"
+  section="Overview"
   meta={todayLong()}
   description={summary}
 >
-  <dl class="metrics">
-    <div class="metric">
-      <dt>Payables outstanding</dt>
-      <dd class="value">{money(apTotal)}</dd>
-      <dd class="hint">{apOpen.length} open invoices</dd>
-    </div>
-    <div class="metric">
-      <dt>Receivables outstanding</dt>
-      <dd class="value">{money(arTotal)}</dd>
-      <dd class="hint">{arOpen.length} open invoices</dd>
-    </div>
-    <div class="metric">
-      <dt>Net position</dt>
-      <dd class="value">
-        {net > 0 ? "+" : ""}
-        {money(net)}
-      </dd>
-      <dd class="hint">Receivables minus payables</dd>
-    </div>
-    <div class="metric">
-      <dt>Overdue</dt>
-      <dd class="value">{overdue.length}</dd>
-      <dd class="hint">{money(overdueTotal)} across both modules</dd>
-    </div>
-  </dl>
+  <span slot="actions">
+    {firstLabel} – {lastLabel}
+  </span>
+
+  <section class="kpis" aria-label="Key figures">
+    <article class="kpi">
+      <p class="k">Issued in {curLabel}</p>
+      <p class="v">{money(curTotal)}</p>
+      <p class={delta === null ? "d" : delta >= 0 ? "d up" : "d down"}>
+        {delta === null
+          ? "No earlier month to compare"
+          : `${delta >= 0 ? "↑" : "↓"} ${Math.abs(delta).toFixed(1)}% vs ${prevLabel}`}
+      </p>
+    </article>
+
+    <article class="kpi">
+      <p class="k">Open receivables</p>
+      <p class="v">{money(openAR)}</p>
+      <p class="d">{openARCount} invoices</p>
+    </article>
+
+    <article class="kpi">
+      <p class="k">Open payables</p>
+      <p class="v">{money(openAP)}</p>
+      <p class="d">{openAPCount} invoices</p>
+    </article>
+
+    <article class="kpi">
+      <p class="k">Overdue</p>
+      <p class="v">{money(overdueAmt)}</p>
+      <p class="d">{overdueShare}% of outstanding</p>
+    </article>
+  </section>
 
   <div class="grid">
-    <section class="panel" aria-labelledby="chart-title">
-      <header class="panel-head">
+    <section class="panel span-2" aria-labelledby="activity">
+      <header class="ph">
         <div>
-          <h2 id="chart-title">Monthly activity</h2>
-          <p>Invoices issued per month. Select a bar to open that month.</p>
+          <h2 id="activity">Monthly activity</h2>
+          <p>
+            Invoices issued per month. Hover a column to read values, select a
+            bar to open that period.
+          </p>
         </div>
         <ul class="legend" aria-hidden="true">
           <li>
-            <span class="swatch ap"></span>Payables
+            <i class="sw ap"></i>Payables
           </li>
           <li>
-            <span class="swatch ar"></span>Receivables
+            <i class="sw ar"></i>Receivables
           </li>
         </ul>
       </header>
 
       <div class="chart">
-        {series.map((s) => (
-          <div class="month">
-            <div class="bars">
+        {series.map((s, i) => (
+          <div class="col" style={`--i: ${i}`}>
+            <div class="pair">
               <a
                 class="bar ap"
                 href={`/ap?start=${s.key}-01&end=${s.end}`}
-                style={`--h: ${px(s.ap)}px`}
-                data-tip={`Payables · ${money(s.ap)}`}
+                style={`--h: ${barH(s.ap)}px`}
                 aria-label={`Payables, ${s.label}: ${money(s.ap)}`}
-              ></a>
+              >
+                <span class="tip">{mio(s.ap)}</span>
+              </a>
               <a
                 class="bar ar"
                 href={`/ar?start=${s.key}-01&end=${s.end}`}
-                style={`--h: ${px(s.ar)}px`}
-                data-tip={`Receivables · ${money(s.ar)}`}
+                style={`--h: ${barH(s.ar)}px`}
                 aria-label={`Receivables, ${s.label}: ${money(s.ar)}`}
-              ></a>
+              >
+                <span class="tip">{mio(s.ar)}</span>
+              </a>
             </div>
-            <span class="month-label">{s.label}</span>
+            <span class="axis">{s.label}</span>
           </div>
         ))}
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="attn-title">
-      <header class="panel-head">
+    <section class="panel" aria-labelledby="mix">
+      <header class="ph">
         <div>
-          <h2 id="attn-title">Needs attention</h2>
-          <p>Overdue invoices across both modules, largest first.</p>
+          <h2 id="mix">Status mix</h2>
+          <p>Share of all invoices by amount</p>
         </div>
-        <span class="count">{overdue.length}</span>
       </header>
 
-      {attention.length === 0 ? (
-        <p class="quiet">Nothing is overdue right now.</p>
+      <div class="donut-wrap">
+        <svg
+          class="donut"
+          viewBox="0 0 200 200"
+          role="img"
+          aria-label={`Paid ${money(paidAmt)}, open ${money(openAmt)}, overdue ${money(overdueAmt)}`}
+        >
+          <g transform="rotate(-90 100 100)">
+            <circle class="track" cx="100" cy="100" r="80" pathLength="100" />
+            {ring.map((s) => (
+              <circle
+                class={`seg is-${s.key}`}
+                cx="100"
+                cy="100"
+                r="80"
+                pathLength="100"
+                stroke-dasharray={`${s.share} ${100 - s.share}`}
+                stroke-dashoffset={-s.start}
+              />
+            ))}
+          </g>
+        </svg>
+        <div class="donut-center">
+          <strong>{all.length}</strong>
+          <span>invoices</span>
+        </div>
+      </div>
+
+      <ul class="mix">
+        {ring.map((s) => (
+          <li>
+            <span class="mix-name">
+              <i class={`sw is-${s.key}`}></i>
+              {s.label}
+            </span>
+            <span class="mix-val">{Math.round(s.share)}%</span>
+            <span class="mix-amt">{money(s.value)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="panel span-2" aria-labelledby="sales">
+      <header class="ph">
+        <div>
+          <h2 id="sales">By sales</h2>
+          <p>Total invoiced per salesperson, split by status</p>
+        </div>
+        <ul class="legend" aria-hidden="true">
+          <li>
+            <i class="sw is-paid"></i>Paid
+          </li>
+          <li>
+            <i class="sw is-open"></i>Open
+          </li>
+          <li>
+            <i class="sw is-overdue"></i>Overdue
+          </li>
+        </ul>
+      </header>
+
+      <ul class="rows">
+        {salesRows.map((r, i) => (
+          <li style={`--i: ${i}`}>
+            <div class="row-top">
+              <span class="name">{r.name}</span>
+              <span class="tot">{money(r.total)}</span>
+            </div>
+            <div
+              class="stack"
+              role="img"
+              aria-label={`${r.name}: paid ${money(r.paid)}, open ${money(r.open)}, overdue ${money(r.overdue)}`}
+            >
+              <span class="s is-paid" style={`width: ${pctOf(r.paid)}%`}></span>
+              <span class="s is-open" style={`width: ${pctOf(r.open)}%`}></span>
+              <span
+                class="s is-overdue"
+                style={`width: ${pctOf(r.overdue)}%`}
+              ></span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="panel" aria-labelledby="overdue">
+      <header class="ph">
+        <div>
+          <h2 id="overdue">Overdue</h2>
+          <p>
+            {overdueCount} invoices · {money(overdueAmt)}
+          </p>
+        </div>
+      </header>
+
+      {overdueCount === 0 ? (
+        <p class="quiet">No overdue invoices.</p>
       ) : (
-        <ul class="attn">
-          {attention.map((a) => (
-            <li>
-              <a href={`/${a.module.toLowerCase()}?status=Overdue`}>
-                <span class="mod">{a.module}</span>
-                <span class="body">
-                  <strong>{a.customer}</strong>
+        <ol class="late">
+          {overdueList.slice(0, 5).map((o, i) => (
+            <li style={`--i: ${i}`}>
+              <a href={`/${o.mod.toLowerCase()}?status=Overdue`}>
+                <span class="mod">{o.mod}</span>
+                <span class="who">
+                  <span class="cust">{o.customer}</span>
                   <span class="meta">
-                    {a.id} · {daysLate(a.dueDate)} days late · due{" "}
-                    {shortDate(a.dueDate)}
+                    {o.id} · {lateDays(o.dueDate)} days late
                   </span>
                 </span>
-                <span class="amt">{money(a.amount)}</span>
-                <svg
-                  class="go"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 14 14"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M2 7h10M8 3l4 4-4 4"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.3"
-                  />
-                </svg>
+                <span class="amt">{money(o.amount)}</span>
               </a>
             </li>
           ))}
-        </ul>
+        </ol>
+      )}
+
+      {overdueCount > 5 && (
+        <p class="more">
+          <a href="/ap?status=Overdue">{overdueCount - 5} more in payables</a>
+        </p>
       )}
     </section>
   </div>
 </AppLayout>
 
 <style>
-  .metrics {
+  .kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin: 0 0 48px;
-    border-top: 1px solid var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    animation: rise 0.7s var(--ease) 0.05s both;
   }
 
-  .metric {
-    position: relative;
-    padding: 22px 24px 24px 0;
+  .kpi {
+    padding: 22px 24px;
+    background: var(--paper);
   }
 
-  .metric + .metric {
-    padding-left: 24px;
+  .kpi + .kpi {
     border-left: 1px solid var(--line);
   }
 
-  /* Garis hitam tebal yang tumbuh saat hover */
-  .metric::before {
-    content: "";
-    position: absolute;
-    top: -1px;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: var(--ink);
-    transition: width 0.6s var(--ease);
-  }
-
-  .metric + .metric::before {
-    left: 24px;
-  }
-
-  .metric:hover::before {
-    width: calc(100% - 24px);
-  }
-  .metric:first-child:hover::before {
-    width: 100%;
-  }
-
-  .metric dt {
+  .k {
     margin: 0 0 12px;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .value {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 500;
-    letter-spacing: -0.015em;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .hint {
-    margin: 8px 0 0;
     font-size: 12px;
     color: var(--muted);
   }
 
+  .v {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .d {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .d.up {
+    color: var(--ink);
+  }
+  .d.down {
+    color: var(--accent);
+  }
+
   .grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    margin-top: 20px;
   }
 
   .panel {
-    padding: 28px;
+    min-width: 0;
+    padding: 24px 26px;
     background: var(--paper);
     border: 1px solid var(--line);
+    border-radius: 10px;
+    animation: rise 0.7s var(--ease) both;
   }
 
-  .panel-head {
+  .panel.span-2 {
+    grid-column: span 2;
+  }
+  .panel:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+  .panel:nth-child(3) {
+    animation-delay: 0.15s;
+  }
+  .panel:nth-child(4) {
+    animation-delay: 0.2s;
+  }
+
+  .ph {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
   }
 
-  .panel h2 {
+  .ph h2 {
     margin: 0 0 4px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    letter-spacing: -0.01em;
   }
 
-  .panel-head p {
+  .ph p {
     margin: 0;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--muted);
   }
 
   .legend {
     display: flex;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 14px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -290,241 +434,446 @@ const heading = `${greeting}, ${name}`;
   }
 
   .legend li {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
   }
 
-  .swatch {
+  .sw {
+    display: inline-block;
     width: 8px;
     height: 8px;
+    border-radius: 2px;
+    background: #c4c4c4;
   }
 
-  .swatch.ap {
+  .sw.ar,
+  .sw.is-open {
+    background: var(--accent);
+  }
+  .sw.is-paid {
+    background: #d6d6d6;
+  }
+  .sw.is-overdue {
     background: var(--ink);
   }
-  .swatch.ar {
-    background: #bdbdbd;
-  }
 
-  /* ---------- Chart ---------- */
+  /* ---------- Grafik bulanan ---------- */
   .chart {
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: 12px;
-    padding: 0 4px;
-    border-bottom: 1px solid var(--ink);
+    grid-auto-columns: minmax(56px, 1fr);
+    gap: 6px;
+    overflow-x: auto;
   }
 
-  .month {
+  .col {
     display: flex;
     flex-direction: column;
     align-items: center;
   }
 
-  .bars {
-    height: 180px;
+  .pair {
+    width: 100%;
+    height: 220px;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
+    border-bottom: 1px solid var(--line-strong);
   }
 
   .bar {
     position: relative;
-    width: 18px;
+    display: block;
+    width: 14px;
     height: var(--h);
-    background: var(--ink);
-    transition:
-      opacity 0.25s ease,
-      transform 0.45s var(--ease);
-    transform-origin: bottom;
+    border-radius: 3px 3px 0 0;
+    transform-origin: bottom center;
+    animation: grow-y 1s var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 80ms + 200ms);
+    transition: opacity 0.35s ease;
   }
 
+  .bar.ap {
+    background: #c4c4c4;
+  }
   .bar.ar {
-    background: #bdbdbd;
+    background: var(--accent);
   }
 
-  .chart:hover .bar {
-    opacity: 0.32;
-  }
-  .bar:hover,
-  .bar:focus-visible {
-    opacity: 1;
+  .chart:hover .col:not(:hover) .bar {
+    opacity: 0.3;
   }
 
   .bar:focus-visible {
-    outline: 1px solid var(--ink);
+    outline: 1px solid var(--accent);
     outline-offset: 3px;
   }
 
-  .bar::after {
-    content: attr(data-tip);
+  .tip {
     position: absolute;
-    bottom: calc(100% + 10px);
+    bottom: calc(100% + 8px);
     left: 50%;
-    padding: 6px 9px;
-    font-size: 12px;
+    transform: translate(-50%, 4px);
+    padding: 2px 6px;
+    font-size: 11px;
     white-space: nowrap;
-    color: var(--paper);
-    background: var(--ink);
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 4px;
     opacity: 0;
     pointer-events: none;
-    transform: translate(-50%, 4px);
     transition:
-      opacity 0.2s ease,
-      transform 0.3s var(--ease);
+      opacity 0.3s ease,
+      transform 0.4s var(--ease);
   }
 
-  .bar:hover::after,
-  .bar:focus-visible::after {
+  .col:hover .tip,
+  .bar:focus-visible .tip {
     opacity: 1;
     transform: translate(-50%, 0);
   }
 
-  .month-label {
+  .axis {
     margin-top: 10px;
-    padding-bottom: 2px;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ---------- Donut ---------- */
+  .donut-wrap {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 4px auto 0;
+  }
+
+  .donut {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .donut circle {
+    fill: none;
+    stroke-width: 16;
+  }
+
+  .donut .track {
+    stroke: var(--wash);
+  }
+  .donut .seg {
+    transition: stroke-width 0.3s ease;
+  }
+  .donut .seg.is-paid {
+    stroke: #d6d6d6;
+  }
+  .donut .seg.is-open {
+    stroke: var(--accent);
+  }
+  .donut .seg.is-overdue {
+    stroke: var(--ink);
+  }
+
+  .donut-wrap:hover .seg {
+    stroke-width: 14;
+  }
+  .donut-wrap:hover .seg:hover {
+    stroke-width: 18;
+  }
+
+  .donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .donut-center strong {
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .donut-center span {
     font-size: 12px;
     color: var(--muted);
   }
 
-  /* ---------- Attention list ---------- */
-  .count {
-    padding: 2px 8px;
-    font-size: 13px;
-    font-variant-numeric: tabular-nums;
-    border: 1px solid var(--ink);
+  .mix {
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .quiet {
-    margin: 0;
-    padding: 24px 0;
+  .mix li {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 16px;
+    align-items: center;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
     font-size: 13px;
+  }
+
+  .mix-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mix-val {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+  }
+
+  .mix-amt {
+    min-width: 110px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
     color: var(--muted);
   }
 
-  .attn {
-    list-style: none;
+  /* ---------- Bar bertumpuk per sales ---------- */
+  .rows {
     margin: 0;
     padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
   }
 
-  .attn li {
-    border-top: 1px solid var(--line);
+  .row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    font-size: 13px;
   }
-  .attn li:last-child {
+
+  .row-top .name {
+    font-weight: 500;
+  }
+
+  .row-top .tot {
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .stack {
+    display: flex;
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--wash);
+  }
+
+  .s {
+    display: block;
+    height: 100%;
+    transform-origin: left center;
+    animation: grow-x 1s var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 90ms + 200ms);
+    transition: filter 0.3s ease;
+  }
+
+  .s.is-paid {
+    background: #d6d6d6;
+  }
+  .s.is-open {
+    background: var(--accent);
+  }
+  .s.is-overdue {
+    background: var(--ink);
+  }
+
+  .rows li:hover .s {
+    filter: brightness(1.1);
+  }
+
+  /* ---------- Daftar overdue ---------- */
+  .late {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .late li {
+    border-top: 1px solid var(--line);
+    animation: row-in 0.6s var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 60ms + 240ms);
+  }
+
+  .late li:last-child {
     border-bottom: 1px solid var(--line);
   }
 
-  .attn a {
+  .late a {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) auto 14px;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
     gap: 14px;
     align-items: center;
     padding: 14px 0;
     color: inherit;
     text-decoration: none;
-    transition: padding 0.35s var(--ease);
   }
 
-  .attn a:hover {
-    padding-left: 6px;
-  }
-
-  .attn a:focus-visible {
-    outline: 1px solid var(--ink);
+  .late a:focus-visible {
+    outline: 1px solid var(--accent);
     outline-offset: 2px;
   }
 
   .mod {
-    padding: 3px 0;
+    padding: 2px 0;
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-align: center;
-    border: 1px solid var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
   }
 
-  .body {
+  .who {
     display: flex;
     flex-direction: column;
     min-width: 0;
   }
 
-  .body strong {
-    font-size: 14px;
+  .cust {
+    font-size: 13px;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 0.25s ease;
   }
 
-  .body .meta {
+  .late a:hover .cust {
+    color: var(--accent);
+  }
+
+  .meta {
+    margin-top: 2px;
     font-size: 12px;
     color: var(--muted);
   }
 
   .amt {
-    font-size: 14px;
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
   }
 
-  .go {
-    color: var(--muted);
-    transition:
-      transform 0.35s var(--ease),
-      color 0.2s ease;
+  .more {
+    margin: 16px 0 0;
+    font-size: 13px;
   }
 
-  .attn a:hover .go {
-    transform: translateX(3px);
+  .more a {
     color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 4px;
   }
 
-  @media (max-width: 1180px) {
-    .metrics {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+  .more a:hover {
+    text-decoration-color: var(--ink);
+  }
+
+  .quiet {
+    margin: 0;
+    padding: 20px 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
     }
-    .metric:nth-child(3) {
-      padding-left: 0;
-      border-left: none;
-    }
-    .metric:nth-child(3)::before {
-      left: 0;
+    to {
+      opacity: 1;
+      transform: none;
     }
   }
 
-  @media (max-width: 1000px) {
+  @keyframes grow-y {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes row-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 1040px) {
     .grid {
       grid-template-columns: 1fr;
+    }
+    .panel.span-2 {
+      grid-column: auto;
+    }
+    .kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .kpi:nth-child(3) {
+      border-left: none;
+    }
+    .kpi:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
     }
   }
 
   @media (max-width: 640px) {
-    .metric,
-    .metric + .metric {
-      padding-left: 0;
+    .kpis {
+      grid-template-columns: 1fr;
+    }
+    .kpi + .kpi {
       border-left: none;
+      border-top: 1px solid var(--line);
     }
-    .metric + .metric::before {
-      left: 0;
-    }
-    .panel {
-      padding: 20px;
-    }
-    .legend {
-      display: none;
+    .kpi:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .kpis,
+    .panel,
     .bar,
-    .bar::after,
-    .metric::before,
-    .attn a,
-    .go {
+    .s,
+    .late li,
+    .seg,
+    .tip {
+      animation: none !important;
       transition: none !important;
     }
   }

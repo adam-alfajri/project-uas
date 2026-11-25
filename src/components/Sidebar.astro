@@ -1,79 +1,135 @@
 ---
+import { apInvoices, arInvoices } from "../lib/data/dummy";
+
+const ICONS = {
+  overview: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+  payable: "M17 7L7 17M7 17h9M7 17V8",
+  receivable: "M7 17L17 7M17 7H8M17 7v9",
+  reports: "M4 20V12M10 20V6M16 20v-8M2 20h20",
+  users: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 20a7 7 0 0 1 14 0",
+} as const;
+
+type Icon = keyof typeof ICONS;
 type Child = { label: string; href: string };
-type Item = { label: string; href: string; children?: Child[] };
+type Entry = {
+  label: string;
+  href: string;
+  icon: Icon;
+  badge?: number;
+  children?: Child[];
+};
+type Group = { title: string; entries: Entry[] };
 
 const path = Astro.url.pathname;
 const profile = Astro.locals.profile;
 
-const isActive = (href: string) =>
-  href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
+const openAP = apInvoices.filter((i) => i.status !== "Paid").length;
+const openAR = arInvoices.filter((i) => i.status !== "Paid").length;
 
-const items: Item[] = [
-  { label: "Dashboard", href: "/" },
-  { label: "Account Payable", href: "/ap" },
-  { label: "Account Receivable", href: "/ar" },
+const groups: Group[] = [
   {
-    label: "Financial Report",
-    href: "/reports",
-    children: [
-      { label: "Forecasting", href: "/reports/forecast" },
-      { label: "Laba Rugi", href: "/reports/laba-rugi" },
-      { label: "Arus Kas", href: "/reports/arus-kas" },
+    title: "Overview",
+    entries: [{ label: "Dashboard", href: "/", icon: "overview" }],
+  },
+  {
+    title: "Transactions",
+    entries: [
+      { label: "Account Payable", href: "/ap", icon: "payable", badge: openAP },
+      {
+        label: "Account Receivable",
+        href: "/ar",
+        icon: "receivable",
+        badge: openAR,
+      },
+    ],
+  },
+  {
+    title: "Reports",
+    entries: [
+      {
+        label: "Financial Report",
+        href: "/reports",
+        icon: "reports",
+        children: [
+          { label: "Forecasting", href: "/reports/forecast" },
+          { label: "Laba Rugi", href: "/reports/laba-rugi" },
+          { label: "Arus Kas", href: "/reports/arus-kas" },
+        ],
+      },
     ],
   },
 ];
 
 if (profile?.role === "admin") {
-  items.push({ label: "Users", href: "/admin/users" });
+  groups.push({
+    title: "Admin",
+    entries: [{ label: "Manage Users", href: "/admin/users", icon: "users" }],
+  });
 }
+
+const isActive = (href: string) =>
+  href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
 ---
 
-<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+<aside class="sidebar" id="sidebar" aria-label="Primary">
   <a class="brand" href="/">
     <span class="mark" aria-hidden="true"></span>
-    Fajri Finance
+    <span>Fajri Finance</span>
   </a>
 
-  <p class="nav-label">Workspace</p>
+  <nav class="nav" aria-label="Modules">
+    {groups.map((g) => (
+      <section class="group">
+        <p class="group-title">{g.title}</p>
+        <ul class="list">
+          {g.entries.map((e) => {
+            const active = isActive(e.href);
+            return (
+              <li>
+                <a
+                  class={active ? "entry is-active" : "entry"}
+                  href={e.href}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d={ICONS[e.icon]} />
+                  </svg>
+                  <span class="text">{e.label}</span>
+                  {e.badge !== undefined && (
+                    <span class="badge">{e.badge}</span>
+                  )}
+                </a>
 
-  <ol class="nav">
-    {items.map((item, i) => {
-      const active = isActive(item.href);
-      return (
-        <li class={active ? "item is-active" : "item"}>
-          <a
-            class="link"
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-          >
-            <span class="idx">{String(i + 1).padStart(2, "0")}</span>
-            <span class="label">{item.label}</span>
-          </a>
-
-          {item.children && (
-            <ul class={active ? "sub is-open" : "sub"}>
-              <li class="sub-wrap">
-                {item.children.map((c) => {
-                  const current = path === c.href;
-                  return (
-                    <a
-                      class={current ? "sub-link is-active" : "sub-link"}
-                      href={c.href}
-                      aria-current={current ? "page" : undefined}
-                    >
-                      {c.label}
-                    </a>
-                  );
-                })}
+                {e.children && (
+                  <ul class="children">
+                    {e.children.map((c) => {
+                      const current = path === c.href;
+                      return (
+                        <li>
+                          <a
+                            class={current ? "child is-current" : "child"}
+                            href={c.href}
+                            aria-current={current ? "page" : undefined}
+                          >
+                            {c.label}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </li>
-            </ul>
-          )}
-        </li>
-      );
-    })}
-  </ol>
+            );
+          })}
+        </ul>
+      </section>
+    ))}
+  </nav>
 
-  <p class="foot">Fajri Finance · v1.0</p>
+  <footer class="foot">
+    <span>Fajri Finance</span>
+    <span>v1.0</span>
+  </footer>
 </aside>
 
 <style>
@@ -85,17 +141,17 @@ if (profile?.role === "admin") {
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    padding: 28px 24px 24px;
+    padding: 24px 16px 20px;
     overflow-y: auto;
     background: #0f0f0f;
     color: #f2f2f2;
   }
 
   .brand {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding-top: 2px;
+    padding: 4px 12px;
     font-size: 14px;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -104,173 +160,157 @@ if (profile?.role === "admin") {
   }
 
   .mark {
-    position: relative;
-    width: 20px;
-    height: 20px;
-    background: #ffffff;
+    width: 14px;
+    height: 14px;
+    background: #fff;
   }
 
-  .mark::after {
-    content: "";
-    position: absolute;
-    left: 5px;
-    top: 5px;
-    width: 10px;
-    height: 10px;
-    background: #0f0f0f;
+  .group {
+    margin-top: 32px;
   }
 
-  .brand:focus-visible {
-    outline: 1px solid #fff;
-    outline-offset: 4px;
-  }
-
-  .nav-label {
-    margin: 44px 0 12px;
+  .group-title {
+    margin: 0 0 8px;
+    padding: 0 12px;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #5c5c5c;
+    color: #5a5a5a;
   }
 
-  .nav {
+  .list {
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
-  .item + .item {
-    margin-top: 2px;
-  }
-
-  .link {
+  .entry {
     position: relative;
-    display: grid;
-    grid-template-columns: 28px 1fr;
-    align-items: baseline;
-    padding: 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 6px;
     font-size: 14px;
-    color: #8a8a8a;
+    color: #9a9a9a;
     text-decoration: none;
-    transition: color 0.25s var(--ease, ease);
+    transition:
+      background-color 0.25s ease,
+      color 0.25s ease;
   }
 
-  .link::before {
+  .entry svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .entry:hover {
+    color: #e6e6e6;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .entry.is-active {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .entry.is-active::before {
     content: "";
     position: absolute;
-    left: -24px;
-    top: 0;
-    bottom: 0;
+    left: 0;
+    top: 9px;
+    bottom: 9px;
     width: 2px;
-    background: #ffffff;
-    transform: scaleY(0);
-    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    border-radius: 2px;
+    background: #7d9bc4;
   }
 
-  .idx {
-    font-family: ui-monospace, Consolas, monospace;
+  .text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .badge {
+    min-width: 24px;
+    padding: 0 7px;
+    line-height: 18px;
     font-size: 11px;
-    color: #4d4d4d;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    color: #8a8a8a;
+    border: 1px solid #2e2e2e;
+    border-radius: 999px;
+  }
+
+  .entry.is-active .badge {
+    color: #fff;
+    border-color: #4a4a4a;
+  }
+
+  .children {
+    list-style: none;
+    margin: 2px 0 6px 26px;
+    padding: 0 0 0 12px;
+    border-left: 1px solid #262626;
+  }
+
+  .child {
+    display: block;
+    padding: 6px 0;
+    font-size: 13px;
+    color: #737373;
+    text-decoration: none;
     transition: color 0.25s ease;
   }
 
-  .link:hover {
+  .child:hover {
     color: #e6e6e6;
   }
-  .link:hover .idx {
-    color: #9a9a9a;
+  .child.is-current {
+    color: #7d9bc4;
   }
 
-  .item.is-active .link {
-    color: #ffffff;
-  }
-  .item.is-active .idx {
-    color: #ffffff;
-  }
-  .item.is-active .link::before {
-    transform: scaleY(1);
-  }
-
-  .link:focus-visible,
-  .sub-link:focus-visible {
-    outline: 1px solid #ffffff;
-    outline-offset: 4px;
-  }
-
-  .sub {
-    display: grid;
-    grid-template-rows: 0fr;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .sub.is-open {
-    grid-template-rows: 1fr;
-  }
-
-  .sub-wrap {
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .sub-link {
-    position: relative;
-    display: block;
-    padding: 7px 0 7px 28px;
-    font-size: 13px;
-    color: #6b6b6b;
-    text-decoration: none;
-    transition: color 0.2s ease;
-  }
-
-  .sub-link::before {
-    content: "";
-    position: absolute;
-    left: 6px;
-    top: 50%;
-    width: 12px;
-    height: 1px;
-    background: currentColor;
-    opacity: 0.6;
-  }
-
-  .sub-link:hover {
-    color: #e6e6e6;
-  }
-  .sub-link.is-active {
-    color: #ffffff;
+  .entry:focus-visible,
+  .child:focus-visible,
+  .brand:focus-visible {
+    outline: 1px solid #7d9bc4;
+    outline-offset: 2px;
   }
 
   .foot {
-    margin: auto 0 0;
-    padding-top: 24px;
+    margin-top: auto;
+    padding: 24px 12px 0;
+    display: flex;
+    justify-content: space-between;
     font-size: 12px;
     color: #4d4d4d;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 960px) {
     .sidebar {
       position: fixed;
-      inset: 0 auto 0 0;
+      top: 0;
+      left: 0;
+      bottom: 0;
       width: 280px;
       height: 100dvh;
       transform: translateX(-100%);
-      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .app.nav-open .sidebar {
-      transform: translateX(0);
+      transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sidebar,
-    .sub,
-    .link::before {
+    * {
       transition: none !important;
+      animation: none !important;
     }
   }
 </style>

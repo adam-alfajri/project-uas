@@ -8,10 +8,10 @@ interface Props {
   description?: string;
 }
 
-const { title, section, meta, description } = Astro.props;
+const { title, meta, description } = Astro.props;
 const profile = Astro.locals.profile;
-const initials = (profile?.username ?? "??").slice(0, 2).toUpperCase();
 const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
+const initials = (profile?.username ?? "G").slice(0, 2).toUpperCase();
 ---
 
 <!doctype html>
@@ -21,23 +21,29 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} | Fajri Finance</title>
     <style>
-      :root {
-        --black: #0f0f0f;
-        --ink: #111111;
-        --ink-2: #3b3b3b;
-        --muted: #6b6b6b;
-        --faint: #a6a6a6;
-        --line: #e6e6e6;
-        --line-strong: #cfcfcf;
-        --canvas: #fafaf9;
-        --paper: #ffffff;
-        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      @view-transition {
+        navigation: auto;
       }
 
-      * {
+      :root {
+        --ink: #111111;
+        --ink-2: #3a3a3a;
+        --muted: #737373;
+        --faint: #a3a3a3;
+        --line: #ebebea;
+        --line-strong: #d4d4d4;
+        --paper: #ffffff;
+        --wash: #f6f6f5;
+        --accent: #3f5f8a;
+        --accent-soft: #c9d4e3;
+        --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
       }
-
       html,
       body {
         margin: 0;
@@ -54,12 +60,36 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
         font-size: 14px;
         line-height: 1.5;
         color: var(--ink);
-        background: var(--canvas);
+        background: var(--paper);
         -webkit-font-smoothing: antialiased;
       }
 
+      ::selection {
+        background: var(--ink);
+        color: var(--paper);
+      }
       button {
         font: inherit;
+      }
+      a {
+        color: inherit;
+      }
+
+      .skip {
+        position: absolute;
+        left: 16px;
+        top: -64px;
+        z-index: 100;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--paper);
+        background: var(--ink);
+        text-decoration: none;
+        transition: top 0.3s var(--ease);
+      }
+
+      .skip:focus {
+        top: 12px;
       }
 
       .app {
@@ -69,123 +99,155 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
         grid-template-columns: 248px minmax(0, 1fr);
       }
 
-      .scrim {
-        display: none;
-      }
-
       .main {
         min-width: 0;
         display: flex;
         flex-direction: column;
       }
 
-      /* ---------- Utility bar ---------- */
-      .utility {
+      /* ---------- Topbar ---------- */
+      .topbar {
         position: sticky;
         top: 0;
-        z-index: 20;
-        height: 56px;
+        z-index: 30;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
+        gap: 24px;
+        height: 64px;
         padding: 0 40px;
-        background: rgba(255, 255, 255, 0.88);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border-bottom: 1px solid var(--line);
       }
 
-      .utility-left {
+      .left {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 20px;
+        flex: 1;
         min-width: 0;
       }
 
-      .crumbs {
-        font-size: 13px;
-        color: var(--muted);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .crumbs strong {
-        font-weight: 500;
-        color: var(--ink);
-      }
-
-      .menu-btn {
+      .toggle {
         display: none;
         align-items: center;
-        gap: 10px;
-        height: 32px;
-        padding: 0 10px 0 0;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 0;
         background: none;
-        border: none;
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--ink);
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
         cursor: pointer;
+        color: var(--ink);
       }
 
-      .burger {
+      .toggle-bars {
         position: relative;
-        width: 16px;
-        height: 10px;
+        width: 14px;
+        height: 8px;
+        border-top: 1px solid currentColor;
+        border-bottom: 1px solid currentColor;
       }
 
-      .burger::before,
-      .burger::after {
+      .toggle-bars::after {
         content: "";
         position: absolute;
         left: 0;
         right: 0;
+        top: 50%;
         height: 1px;
-        background: var(--ink);
+        background: currentColor;
+        transform: translateY(-50%);
+        transition: transform 0.5s var(--ease);
+      }
+
+      .app.nav-open .toggle-bars::after {
+        transform: translateY(-50%) scaleX(0);
+      }
+
+      .search {
+        position: relative;
+        width: min(380px, 100%);
+      }
+
+      .search svg {
+        position: absolute;
+        left: 12px;
+        top: 10px;
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: var(--muted);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        pointer-events: none;
+      }
+
+      .search input {
+        width: 100%;
+        height: 36px;
+        padding: 0 44px 0 36px;
+        font: inherit;
+        font-size: 14px;
+        color: var(--ink);
+        background: var(--wash);
+        border: 1px solid transparent;
+        border-radius: 8px;
         transition:
-          transform 0.35s var(--ease),
-          top 0.35s var(--ease);
+          background-color 0.3s ease,
+          border-color 0.3s ease,
+          box-shadow 0.3s ease;
       }
 
-      .burger::before {
-        top: 0;
+      .search input::placeholder {
+        color: var(--faint);
       }
-      .burger::after {
+
+      .search input:focus {
+        outline: none;
+        background: var(--paper);
+        border-color: var(--accent-soft);
+        box-shadow: 0 0 0 3px rgba(63, 95, 138, 0.12);
+      }
+
+      .search kbd {
+        position: absolute;
+        right: 10px;
         top: 9px;
+        padding: 0 6px;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 11px;
+        color: var(--faint);
+        border: 1px solid var(--line-strong);
+        border-radius: 4px;
+        pointer-events: none;
       }
 
-      .app.nav-open .burger::before {
-        top: 4px;
-        transform: rotate(45deg);
-      }
-      .app.nav-open .burger::after {
-        top: 4px;
-        transform: rotate(-45deg);
-      }
-
-      .menu-btn:focus-visible {
-        outline: 1px solid var(--ink);
-        outline-offset: 4px;
+      .search:focus-within kbd {
+        opacity: 0;
       }
 
       .account {
         display: flex;
         align-items: center;
         gap: 14px;
+        flex: none;
       }
 
       .avatar {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         display: grid;
         place-items: center;
-        background: var(--black);
-        color: var(--paper);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.04em;
+        color: var(--paper);
+        background: var(--ink);
+        border-radius: 8px;
       }
 
       .who {
@@ -198,97 +260,84 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
         font-size: 13px;
         font-weight: 500;
       }
-
       .who .role {
-        font-size: 11px;
+        font-size: 12px;
         color: var(--muted);
       }
 
-      .divider {
-        width: 1px;
-        height: 20px;
-        background: var(--line);
-      }
-
       .signout {
-        position: relative;
-        padding: 6px 0;
-        background: none;
-        border: none;
+        height: 32px;
+        padding: 0 12px;
         font-size: 13px;
         color: var(--ink-2);
+        background: none;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
         cursor: pointer;
-      }
-
-      .signout::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 2px;
-        height: 1px;
-        background: currentColor;
-        transform: scaleX(0);
-        transform-origin: right center;
-        transition: transform 0.4s var(--ease);
+        transition:
+          border-color 0.3s ease,
+          color 0.3s ease;
       }
 
       .signout:hover {
         color: var(--ink);
-      }
-      .signout:hover::after {
-        transform: scaleX(1);
-        transform-origin: left center;
+        border-color: var(--ink);
       }
 
-      .signout:focus-visible {
-        outline: 1px solid var(--ink);
-        outline-offset: 4px;
+      .toggle:focus-visible,
+      .search input:focus-visible,
+      .signout:focus-visible,
+      .skip:focus-visible {
+        outline: 1px solid var(--accent);
+        outline-offset: 2px;
       }
 
       /* ---------- Konten ---------- */
       .content {
         width: 100%;
-        max-width: 1280px;
-        padding: 48px 48px 72px;
+        max-width: 1200px;
+        padding: 48px 40px 96px;
       }
 
       .page-head {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 24px;
         margin-bottom: 40px;
+        animation: rise 0.8s var(--ease) both;
       }
 
       .meta {
-        margin: 0 0 10px;
-        font-size: 11px;
-        font-weight: 500;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+        margin: 0 0 8px;
+        font-size: 12px;
         color: var(--muted);
       }
 
       h1 {
         margin: 0;
-        font-size: 28px;
+        font-size: clamp(28px, 3vw, 36px);
         font-weight: 500;
-        line-height: 1.2;
-        letter-spacing: -0.02em;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
       }
 
       .desc {
-        margin: 8px 0 0;
-        max-width: 62ch;
+        margin: 10px 0 0;
+        max-width: 64ch;
+        font-size: 14px;
         color: var(--ink-2);
       }
 
-      .content > * {
-        animation: rise 0.6s var(--ease) both;
+      .head-actions {
+        font-size: 13px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
       }
 
-      .content > .page-head {
-        animation-delay: 0s;
-      }
-      .content > :not(.page-head) {
-        animation-delay: 0.08s;
+      .rise {
+        animation: rise 0.8s var(--ease) 0.08s both;
       }
 
       @keyframes rise {
@@ -302,32 +351,24 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
         }
       }
 
-      /* ---------- Responsif ---------- */
-      @media (max-width: 1100px) {
-        .content {
-          padding: 40px 32px 64px;
-        }
+      .scrim {
+        display: none;
       }
 
-      @media (max-width: 900px) {
+      @media (max-width: 960px) {
         .app {
           grid-template-columns: 1fr;
         }
-
-        .menu-btn {
+        .toggle {
           display: inline-flex;
         }
-
-        .utility {
+        .topbar {
           padding: 0 20px;
         }
-
         .content {
-          padding: 32px 20px 56px;
+          padding: 32px 20px 72px;
         }
-
-        .who,
-        .divider {
+        .who {
           display: none;
         }
 
@@ -336,10 +377,10 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
           position: fixed;
           inset: 0;
           z-index: 40;
-          background: rgba(15, 15, 15, 0.35);
+          background: rgba(15, 15, 15, 0.4);
           opacity: 0;
           pointer-events: none;
-          transition: opacity 0.35s var(--ease);
+          transition: opacity 0.5s var(--ease);
         }
 
         .app.nav-open .scrim {
@@ -359,6 +400,10 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
     </style>
   </head>
   <body>
+    <a class="skip" href="#content">
+      Skip to content
+    </a>
+
     <div class="app" id="app">
       <Sidebar />
 
@@ -366,28 +411,38 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
         class="scrim"
         type="button"
         aria-label="Close menu"
-        data-nav-close
+        data-close
       ></button>
 
       <div class="main">
-        <header class="utility">
-          <div class="utility-left">
+        <header class="topbar">
+          <div class="left">
             <button
-              class="menu-btn"
+              class="toggle"
               type="button"
               aria-controls="sidebar"
               aria-expanded="false"
-              data-nav-toggle
+              aria-label="Toggle menu"
+              data-toggle
             >
-              <span class="burger" aria-hidden="true"></span>
-              Menu
+              <span class="toggle-bars" aria-hidden="true"></span>
             </button>
 
-            <nav class="crumbs" aria-label="Breadcrumb">
-              <span>Fajri Finance</span>
-              <span aria-hidden="true"> / </span>
-              <strong>{section ?? title}</strong>
-            </nav>
+            <form class="search" role="search" action="/ap" method="GET">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-4-4" />
+              </svg>
+              <input
+                type="search"
+                name="q"
+                placeholder="Search invoices or customers"
+                autocomplete="off"
+                aria-label="Search invoices"
+                data-global-search
+              />
+              <kbd aria-hidden="true">/</kbd>
+            </form>
           </div>
 
           <div class="account">
@@ -398,7 +453,6 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
               <span class="name">{profile?.username ?? "Guest"}</span>
               <span class="role">{roleLabel}</span>
             </div>
-            <span class="divider" aria-hidden="true"></span>
             <form method="POST" action="/api/auth/logout">
               <button class="signout" type="submit">
                 Sign out
@@ -407,40 +461,58 @@ const roleLabel = profile?.role === "admin" ? "Administrator" : "Member";
           </div>
         </header>
 
-        <div class="content">
+        <main class="content" id="content">
           <div class="page-head">
-            {meta && <p class="meta">{meta}</p>}
-            <h1>{title}</h1>
-            {description && <p class="desc">{description}</p>}
+            <div>
+              {meta && <p class="meta">{meta}</p>}
+              <h1>{title}</h1>
+              {description && <p class="desc">{description}</p>}
+            </div>
+            <div class="head-actions">
+              <slot name="actions" />
+            </div>
           </div>
 
-          <slot />
-        </div>
+          <div class="rise">
+            <slot />
+          </div>
+        </main>
       </div>
     </div>
 
     <script>
       const app = document.getElementById("app") as HTMLElement;
-      const toggle =
-        document.querySelector<HTMLButtonElement>("[data-nav-toggle]");
-      const closers =
-        document.querySelectorAll<HTMLElement>("[data-nav-close]");
+      const toggle = document.querySelector<HTMLButtonElement>("[data-toggle]");
 
       const setOpen = (open: boolean) => {
         app.classList.toggle("nav-open", open);
         toggle?.setAttribute("aria-expanded", String(open));
       };
 
-      toggle?.addEventListener("click", () => {
-        setOpen(!app.classList.contains("nav-open"));
-      });
-
-      closers.forEach((el) =>
-        el.addEventListener("click", () => setOpen(false)),
+      toggle?.addEventListener("click", () =>
+        setOpen(!app.classList.contains("nav-open")),
       );
+      document
+        .querySelectorAll("[data-close]")
+        .forEach((el) => el.addEventListener("click", () => setOpen(false)));
 
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") setOpen(false);
+
+        const el = e.target as HTMLElement | null;
+        const typing = el?.closest(
+          'input, textarea, select, [contenteditable="true"]',
+        );
+        if (e.key === "/" && !typing) {
+          const target =
+            document.querySelector<HTMLInputElement>("[data-search]") ??
+            document.querySelector<HTMLInputElement>("[data-global-search]");
+          if (target) {
+            e.preventDefault();
+            target.focus();
+            target.select();
+          }
+        }
       });
     </script>
   </body>
